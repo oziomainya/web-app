@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endpoint Security Hardening Lab</title>
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23050505'/><text x='50' y='68' font-family='monospace' font-size='48' font-weight='bold' fill='%2300ff41' text-anchor='middle'>OZI</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+
+<script>
+
+  /*
+  ==============================================================
+  YOUR PROJECT DETAILS -- EDIT THIS SECTION ONLY
+  ==============================================================
+  Everything you need to fill in is below.
+  The rest of the file builds the page automatically.
+  DO NOT edit anything below the closing comment block.
+  ==============================================================
+  */
+
+  const PROJECT = {
+
+    /*
+    -- BASICS ------------------------------------------------
+    Replace [Your Full Name] with your real name.
+    Replace [Month, Year] with when you completed this project.
+    Leave status as "live" since this project is complete.
+    */
+
+    title:      "Endpoint Security Hardening Lab",
+    category:   "cybersecurity",
+    status:     "live",
+    author:     "Ozioma Inya",       // REPLACE with your name
+    date:       "August, 2025",          // REPLACE e.g. "June, 2025"
+
+
+    /*
+    -- OVERVIEW ----------------------------------------------
+    One-paragraph summary shown at the top of the page.
+    Leave as-is or rewrite in your own words.
+    */
+
+    overview:   "A security hardening exercise built in Cisco Packet Tracer on a small office network. Applies multiple layers of endpoint and network security controls, including standard and extended ACLs to restrict traffic, port security on switch access ports to prevent unauthorised device connections, and shutdown of all unused switch ports. Completed as part of the Cisco Networking Academy Junior Cybersecurity Analyst career path.",
+
+
+    /*
+    -- OBJECTIVES --------------------------------------------
+    Goals of the project. Add or remove items as needed.
+    Each item must be inside quotes and separated by a comma.
+    */
+
+    objectives: [
+      "Build a small office network topology in Cisco Packet Tracer and verify baseline connectivity",
+      "Configure a standard ACL on R1 to restrict traffic based on source IP address",
+      "Configure an extended ACL to filter traffic based on protocol and destination port",
+      "Apply port security on SW1 access ports to limit connections to known MAC addresses",
+      "Disable all unused switch ports to reduce the physical attack surface",
+      "Verify that permitted traffic flows correctly and restricted traffic is blocked",
+      "Document all security configurations, test results, and lessons learned",
+    ],
+
+
+    /*
+    -- TOOLS ------------------------------------------------
+    Leave as-is for this project.
+    */
+
+    tools: [
+      { name: "Cisco Packet Tracer",  purpose: "Network simulation and security configuration" },
+      { name: "Cisco IOS CLI",        purpose: "Router and switch configuration" },
+      { name: "ICMP Ping",            purpose: "Connectivity and ACL verification testing" },
+    ],
+
+
+    /*
+    -- SKILL TAGS -------------------------------------------
+    */
+
+    skills: [
+      "Standard ACLs", "Extended ACLs", "Port Security",
+      "MAC Address Filtering", "Unused Port Shutdown", "Device Hardening",
+      "Traffic Filtering", "Cisco IOS CLI", "Network Security",
+      "Access Control", "Packet Tracer", "Security Verification",
+    ],
+
+
+    /*
+    -- STEPS ------------------------------------------------
+    Each step has a title, description, and optional code block.
+    Set code to "" to hide the code block for that step.
+    */
+
+    steps: [
+      {
+        title: "Build the Topology and Verify Baseline",
+        desc:  "Opened Cisco Packet Tracer and placed one 1941 router (R1), one 2960 switch (SW1), and two PCs. Connected PC1 to SW1 Fa0/1 and PC2 to SW1 Fa0/2, and SW1 G0/1 to R1 G0/0. Assigned IP addresses and verified full baseline connectivity before applying any security controls. This is important. Confirming everything works before hardening means any failures after are caused by the security config, not a pre-existing fault.",
+        code:  `Addressing Table:
+  PC1   192.168.1.10 /24   GW: 192.168.1.1
+  PC2   192.168.1.20 /24   GW: 192.168.1.1
+  R1    G0/0: 192.168.1.1 /24
+  SW1   VLAN1: 192.168.1.2 /24   GW: 192.168.1.1
+
+Baseline ping verification (before hardening):
+  PC1 -> PC2          SUCCESS
+  PC1 -> R1 G0/0     SUCCESS
+  PC1 -> SW1 VLAN1    SUCCESS`,
+      },
+      {
+        title: "Configure a Standard ACL",
+        desc:  "Configured a standard numbered ACL on R1 to permit traffic only from the 192.168.1.0/24 network and deny everything else. Applied the ACL inbound on G0/0. Standard ACLs filter based on source IP only. Therefore, they should be placed as close to the destination as possible to avoid blocking traffic unnecessarily.",
+        code:  `R1> enable
+R1# configure terminal
+
+R1(config)# access-list 10 permit 192.168.1.0 0.0.0.255
+R1(config)# access-list 10 deny any
+
+R1(config)# interface GigabitEthernet0/0
+R1(config-if)# ip access-group 10 in
+R1(config-if)# exit
+
+R1# show access-lists
+Standard IP access list 10
+  10 permit 192.168.1.0, wildcard bits 0.0.0.255
+  20 deny   any`,
+      },
+      {
+        title: "Configure an Extended ACL",
+        desc:  "Configured a named extended ACL to demonstrate more granular traffic control. This ACL permits ICMP (ping) from PC1 to PC2, permits HTTP traffic on port 80, and explicitly denies all Telnet (port 23) traffic to block insecure remote access. Extended ACLs filter on source IP, destination IP, protocol, and port. Therefore, they should be placed as close to the source as possible.",
+        code:  `R1(config)# ip access-list extended SECURITY_POLICY
+
+R1(config-ext-nacl)# permit icmp host 192.168.1.10 host 192.168.1.20
+R1(config-ext-nacl)# permit tcp 192.168.1.0 0.0.0.255 any eq 80
+R1(config-ext-nacl)# deny tcp any any eq 23
+R1(config-ext-nacl)# permit ip any any
+R1(config-ext-nacl)# exit
+
+R1(config)# interface GigabitEthernet0/0
+R1(config-if)# ip access-group SECURITY_POLICY in
+R1(config-if)# exit
+
+R1# show ip access-lists SECURITY_POLICY
+Extended IP access list SECURITY_POLICY
+    permit icmp host 192.168.1.10 host 192.168.1.20
+    permit tcp 192.168.1.0 0.0.0.255 any eq www
+    deny tcp any any eq telnet
+    permit ip any any`,
+      },
+      {
+        title: "Configure Port Security on SW1",
+        desc:  "Applied port security to the two active access ports on SW1 (Fa0/1 and Fa0/2). Port security limits the number of MAC addresses allowed per port and defines the violation action. Set to sticky mode so the switch learns and locks the first MAC address it sees on each port. Violation mode set to restrict so that the switch drops frames from unknown MACs and logs the event without shutting the port down.",
+        code:  `SW1> enable
+SW1# configure terminal
+
+SW1(config)# interface range FastEthernet0/1-2
+SW1(config-if)# switchport mode access
+SW1(config-if)# switchport port-security
+SW1(config-if)# switchport port-security maximum 1
+SW1(config-if)# switchport port-security mac-address sticky
+SW1(config-if)# switchport port-security violation restrict
+SW1(config-if)# exit
+
+SW1# show port-security interface FastEthernet0/1
+Port Security              : Enabled
+Port Status                : Secure-up
+Violation Mode             : Restrict
+Aging Time                 : 0 mins
+Aging Type                 : Absolute
+SecureStatic Address Aging : Disabled
+Maximum MAC Addresses      : 1
+Total MAC Addresses        : 0
+Configured MAC Addresses   : 0
+Sticky MAC Addresses       : 0
+Last Source Address:Vlan   : 0000.0000.0000:0
+Security Violation Count   : 0`,
+      },
+      {
+        title: "Disable Unused Switch Ports",
+        desc:  "Identified all unused ports on SW1 (Fa0/3 through Fa0/24, and G0/2) and shut them down administratively. An open unused port is an easy entry point as an attacker could plug a device into any open port and gain network access. Shutting unused ports is one of the simplest and most effective physical security controls.",
+        code:  `SW1(config)# interface range FastEthernet0/3 - 24, GigabitEthernet0/2
+SW1(config-if-range)# shutdown
+SW1(config-if-range)# exit
+
+SW1(config)# end
+SW1# copy running-config startup-config 
+Destination filename [startup-config]? 
+Building configuration...
+[OK]
+
+SW1# show interfaces status
+Port      Name     Status       Vlan  Duplex    Speed
+Fa0/1              connected    1     a-full    a-100
+Fa0/2              connected    1     a-full    a-100
+Fa0/3              disabled     1     auto      auto
+...
+Fa0/24             disabled     1     auto      auto
+G0/1               connected    1     a-full    a-100
+G0/2               disabled     1     auto      auto`, 
+      },
+      {
+        title: "Verify All Security Controls",
+        desc:  "Ran a full set of verification tests to confirm the security configuration was working correctly. Tested permitted traffic (intra-LAN pings), confirmed ACL hit counts incremented correctly, verified port security was active on Fa0/1 and Fa0/2, and confirmed all unused ports were in disabled state. Used show commands throughout to document the final state of all controls.",
+        code:  `-- ACL verification
+R1# show ip access-lists
+  permit 192.168.1.0 (15 matches)
+  deny any (3 matches)
+
+-- Port security verification
+SW1# show port-security
+Secure Port  MaxSecureAddr  CurrentAddr  SecurityViolation  Security Action
+Fa0/1        1              1            0                  Restrict
+Fa0/2        1              1            0                  Restrict
+
+-- Sticky MAC addresses learned
+SW1# show port-security address
+Vlan  Mac Address        Type          Ports
+1     00E0.A31A.DA98     SecureSticky  Fa0/1
+1     0060.2F63.C629     SecureSticky  Fa0/2
+
+-- Unused ports confirmed down
+SW1# show interfaces FastEthernet0/5 status
+Port    Status    Vlan
+Fa0/5   disabled  1`,
+      },
+    ],
+
+
+    /*
+    -- RESULTS ----------------------------------------------
+    Types: "success" (green) | "warning" (amber) | "fix" (cyan) | "fail" (red)
+    */
+
+    results: [
+      { type: "success", text: "Baseline connectivity confirmed before hardening. All pings succeeded, giving a clean starting point." },
+      { type: "success", text: "Standard ACL permitted traffic from 192.168.1.0/24 and denied all other source addresses. This was verified with show access-lists hit counts." },
+      { type: "success", text: "Extended ACL correctly permitted ICMP and HTTP while blocking Telnet. This was tested with ping and simulated Telnet attempt." },
+      { type: "success", text: "Port security activated on Fa0/1 and Fa0/2. Sticky MAC addresses were learnt and locked on first connection." },
+      { type: "success", text: "All unused ports Fa0/3 through Fa0/24, and G0/2 confirmed in disabled state via show interfaces status." },
+      { type: "warning", text: "After applying the standard ACL, pings from PC1 to R1 initially failed. The ACL was applied in the wrong direction (out instead of in)." },
+      { type: "fix",     text: "Removed the incorrectly applied ACL with no ip access-group 10 out, re-applied inbound with ip access-group 10 in, and pings succeeded." },
+      { type: "warning", text: "Port security violation count incremented unexpectedly on Fa0/2 after reconnecting PC2 as the sticky MAC had been saved from a different NIC." },
+      { type: "fix",     text: "Cleared the port security sticky entry with clear port-security sticky interface Fa0/2, reconnected PC2, and let the correct MAC be re-learnt." },
+    ],
+
+
+    /*
+    -- LESSONS LEARNED --------------------------------------
+    Rewrite in your own words to make this section personal.
+    */
+
+    lessons: [
+      {
+        title: "Always verify baseline connectivity before applying security controls",
+        text:  "Starting with a clean, confirmed baseline meant that every failure after hardening was directly caused by a security configuration issue and not a pre-existing problem. This made troubleshooting much faster and the documentation much cleaner.",
+      },
+      {
+        title: "ACL direction matters as much as the ACL itself",
+        text:  "An ACL applied outbound instead of inbound can block all traffic or nothing at all depending on the topology. The direction of the access-group command is just as important as the permit and deny statements inside it.",
+      },
+      {
+        title: "Port security sticky mode is powerful but needs careful management",
+        text:  "Sticky mode is convenient as the switch learns and locks the MAC automatically. But if a device is replaced or reconnected with a different MAC, you get a violation immediately. In production, you would either use static MAC entries for critical ports or document the sticky entries carefully.",
+      },
+      {
+        title: "Shutting unused ports is the easiest security win on a switch",
+        text:  "It takes 30 seconds with interface range. It closes a physical entry point that requires no credentials to exploit. In a real environment, every port that does not need to be active should be administratively down.",
+      },
+    ],
+
+
+    /*
+    -- LINKS -----------------------------------------------
+    Fill these in once your project is live on GitHub.
+    Leave as "" to hide the button until ready.
+    */
+
+    githubLink:     "https://github.com/oziomainya/endpoint-security-hardening-lab",   // REPLACE with GitHub repo URL when ready
+    portfolioLink:  "https://oziomainya/github.io",   // REPLACE with portfolio URL when ready
+    authorLinkedIn: "https://linkedin.com/in/ozioma-inya-a46327304",   // REPLACE with LinkedIn URL when ready
+
+  };
+
+  /*
+  ==============================================================
+  DO NOT EDIT BELOW THIS COMMENT BLOCK
+  ==============================================================
+  */
+
+</script>
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050505;--bg-2:#0c0c0c;--bg-card:#0f0f0f;--bg-code:#080808;
+  --green:#00ff41;--green-d:#00b32d;--green-dk:#001f08;
+  --cyan:#00e5ff;--cyan-d:#00a8c0;
+  --amber:#ffd600;--red:#ff4444;--text:#ccffcc;
+  --text-2:#5a8f5a;--text-m:#2a4a2a;
+  --border:rgba(0,255,65,.09);--border-s:rgba(0,255,65,.22);
+  --font:'JetBrains Mono','Courier New',monospace
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.7;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,65,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,.02) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.1) 2px,rgba(0,0,0,.1) 4px);pointer-events:none;z-index:999}
+nav{position:fixed;top:0;width:100%;z-index:100;background:rgba(5,5,5,.97);border-bottom:1px solid var(--border);padding:0 2.5rem;height:56px;display:flex;align-items:center;justify-content:space-between}
+.nav-back{color:var(--text-2);text-decoration:none;font-size:11px;letter-spacing:.1em;transition:color .2s}
+.nav-back::before{content:'<- ';color:var(--text-m)}
+.nav-back:hover{color:var(--green)}
+.nav-id{color:var(--text-m);font-size:11px;letter-spacing:.1em}
+main{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:6rem 2.5rem 5rem}
+.proj-header{margin-bottom:4rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border)}
+.proj-meta{display:flex;align-items:center;gap:.65rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.meta-cat{font-size:9px;letter-spacing:.15em;padding:3px 10px;border-radius:2px}
+.meta-cat.networking{background:var(--green-dk);color:var(--green);border:1px solid rgba(0,255,65,.2)}
+.meta-cat.cybersecurity{background:rgba(0,229,255,.06);color:var(--cyan-d);border:1px solid rgba(0,229,255,.2)}
+.meta-cat.ethical-hacking{background:rgba(255,214,0,.06);color:rgba(255,214,0,.7);border:1px solid rgba(255,214,0,.2)}
+.meta-cat.automation{background:var(--green-dk);color:var(--green);border:1px solid rgba(0,255,65,.2)}
+.meta-status{font-size:9px;letter-spacing:.12em;display:inline-flex;align-items:center;gap:5px}
+.meta-status::before{content:'';width:6px;height:6px;border-radius:50%;animation:pulse 2s ease-in-out infinite}
+.meta-status.live{color:var(--green)}.meta-status.live::before{background:var(--green)}
+.meta-status.wip{color:var(--cyan)}.meta-status.wip::before{background:var(--cyan)}
+.meta-status.soon{color:var(--amber)}.meta-status.soon::before{background:var(--amber)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.meta-source{font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:2px;background:rgba(0,229,255,.05);color:var(--cyan-d);border:1px solid rgba(0,229,255,.15)}
+.meta-date{font-size:10px;color:var(--text-m)}
+.proj-title{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;color:var(--green);letter-spacing:-.02em;margin-bottom:1rem;line-height:1.15}
+.proj-overview{font-size:13px;color:var(--text-2);line-height:2;max-width:640px}
+.proj-actions{display:flex;gap:.75rem;margin-top:2rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem 1.2rem;font-family:var(--font);font-size:11px;letter-spacing:.1em;cursor:pointer;transition:all .18s;text-decoration:none;border-radius:2px}
+.btn-p{background:var(--green-dk);color:var(--green);border:1px solid rgba(0,255,65,.3)}
+.btn-p:hover{background:var(--green);color:#030d06}
+.btn-s{background:transparent;color:var(--text-2);border:1px solid var(--border-s)}
+.btn-s:hover{color:var(--cyan);border-color:rgba(0,229,255,.3)}
+.section{margin-bottom:3.5rem}
+.sh{display:flex;align-items:center;gap:1rem;margin-bottom:1.75rem;color:var(--text-2);font-size:12px;letter-spacing:.1em}
+.sh::before{content:'$';color:var(--green);font-size:14px;font-weight:700}
+.sh::after{content:'';flex:1;height:1px;background:var(--border)}
+.obj-list{display:flex;flex-direction:column;gap:.6rem}
+.obj-item{display:flex;align-items:flex-start;gap:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;padding:.85rem 1.1rem;font-size:12px;color:var(--text-2);transition:border-color .2s}
+.obj-item:hover{border-color:var(--border-s)}
+.obj-num{color:var(--text-m);flex-shrink:0;min-width:22px}
+.tools-table{width:100%;border-collapse:collapse;font-size:12px}
+.tools-table th{text-align:left;padding:.6rem 1rem;color:var(--text-m);font-weight:400;font-size:10px;letter-spacing:.1em;border-bottom:1px solid var(--border)}
+.tools-table td{padding:.7rem 1rem;border-bottom:1px solid var(--border);color:var(--text-2)}
+.tools-table tr:last-child td{border-bottom:none}
+.tools-table tr:hover td{color:var(--text)}
+.tool-name{color:var(--green);font-weight:500}
+.tags-wrap{display:flex;flex-wrap:wrap;gap:.4rem}
+.tag{display:inline-block;padding:3px 10px;font-size:10px;border-radius:2px;letter-spacing:.04em}
+.tag.g{background:rgba(0,255,65,.06);color:var(--green-d);border:1px solid rgba(0,255,65,.14)}
+.tag.c{background:rgba(0,229,255,.05);color:var(--cyan-d);border:1px solid rgba(0,229,255,.14)}
+.tag.a{background:rgba(255,214,0,.06);color:rgba(255,214,0,.65);border:1px solid rgba(255,214,0,.14)}
+.topo-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1.5rem;overflow-x:auto}
+.topo-diagram{font-size:11px;color:var(--green-d);line-height:2.1;white-space:pre;font-family:var(--font);margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
+.topo-table{width:100%;border-collapse:collapse;font-size:11px}
+.topo-table th{text-align:left;padding:.5rem .85rem;color:var(--text-m);font-weight:400;font-size:10px;letter-spacing:.1em;border-bottom:1px solid var(--border)}
+.topo-table td{padding:.6rem .85rem;border-bottom:1px solid var(--border);color:var(--text-2)}
+.topo-table tr:last-child td{border-bottom:none}
+.topo-hl{color:var(--green) !important;font-weight:500}
+.topo-ip{color:var(--cyan-d) !important}
+.topo-sec{color:var(--amber) !important;font-size:9px;letter-spacing:.08em}
+.steps-list{display:flex;flex-direction:column;gap:1.25rem}
+.step{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;overflow:hidden;transition:border-color .2s}
+.step:hover{border-color:var(--border-s)}
+.step-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem}
+.step-n{font-size:9px;color:var(--text-m);letter-spacing:.15em}
+.step-title{font-size:12px;font-weight:700;color:var(--cyan)}
+.step-body{padding:1rem 1.25rem}
+.step-desc{font-size:12px;color:var(--text-2);line-height:1.9;margin-bottom:.75rem}
+.step-code{background:var(--bg-code);border:1px solid rgba(0,255,65,.07);border-radius:3px;padding:1rem 1.25rem;font-size:11px;color:var(--green-d);overflow-x:auto;white-space:pre;line-height:1.8}
+.results-list{display:flex;flex-direction:column;gap:.6rem}
+.result{display:flex;align-items:flex-start;gap:.85rem;padding:.9rem 1.1rem;border-radius:3px;border:1px solid;font-size:12px;line-height:1.8}
+.result.success{background:rgba(0,255,65,.04);border-color:rgba(0,255,65,.12);color:var(--text-2)}
+.result.success .ri{color:var(--green);flex-shrink:0}
+.result.warning{background:rgba(255,214,0,.04);border-color:rgba(255,214,0,.12);color:var(--text-2)}
+.result.warning .ri{color:var(--amber);flex-shrink:0}
+.result.fix{background:rgba(0,229,255,.04);border-color:rgba(0,229,255,.12);color:var(--text-2)}
+.result.fix .ri{color:var(--cyan);flex-shrink:0}
+.result.fail{background:rgba(255,68,68,.04);border-color:rgba(255,68,68,.12);color:var(--text-2)}
+.result.fail .ri{color:var(--red);flex-shrink:0}
+.lessons-list{display:flex;flex-direction:column;gap:1rem}
+.lesson{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1.25rem;transition:border-color .2s}
+.lesson:hover{border-color:var(--border-s)}
+.lesson-n{font-size:9px;color:var(--text-m);letter-spacing:.15em;margin-bottom:.35rem}
+.lesson-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:.4rem}
+.lesson-text{font-size:12px;color:var(--text-2);line-height:1.9}
+.screenshots{display:flex;flex-direction:column;gap:1.5rem}
+.screenshot-item{display:flex;flex-direction:column;gap:.6rem}
+.screenshot-item img{width:100%;border-radius:4px;border:1px solid rgba(0,255,65,.1);display:block}
+.screenshot-caption{font-size:10px;color:var(--text-m);letter-spacing:.08em;padding-left:.25rem}
+.screenshot-placeholder{background:var(--bg-card);border:1px dashed rgba(0,255,65,.15);border-radius:4px;padding:2.5rem;text-align:center;font-size:11px;color:var(--text-m);letter-spacing:.05em}
+footer{position:relative;z-index:1;text-align:center;padding:2rem;border-top:1px solid var(--border);color:var(--text-m);font-size:10px;letter-spacing:.1em}
+@media(max-width:620px){main{padding:5rem 1.25rem 3rem}nav{padding:0 1.25rem}.proj-title{font-size:1.7rem}.topo-diagram{font-size:9px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a id="nav-back" href="#" class="nav-back">Back to Portfolio</a>
+  <span class="nav-id" id="nav-id"></span>
+</nav>
+
+<main>
+  <header class="proj-header" id="proj-header"></header>
+
+  <div class="section">
+    <div class="sh">cat objectives.txt</div>
+    <div class="obj-list" id="obj-list"></div>
+  </div>
+
+  <div class="section">
+    <div class="sh">cat tools.txt</div>
+    <table class="tools-table">
+      <thead><tr><th>TOOL / TECHNOLOGY</th><th>PURPOSE</th></tr></thead>
+      <tbody id="tools-body"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="sh">cat skills.txt</div>
+    <div class="tags-wrap" id="tags-wrap"></div>
+  </div>
+
+  <div class="section">
+    <div class="sh">cat topology.txt</div>
+    <div class="topo-wrap">
+      <pre class="topo-diagram">  Network: 192.168.1.0/24
+
+  [PC1: 192.168.1.10] --+
+                         +--> [SW1: VLAN1 192.168.1.2] --> [R1 G0/0: 192.168.1.1]
+  [PC2: 192.168.1.20] --+
+                              |
+                              +-- Fa0/3 to Fa0/24, G0/2: DISABLED (unused ports shutdown)</pre>
+      <table class="topo-table">
+        <thead><tr><th>DEVICE</th><th>INTERFACE</th><th>IP ADDRESS</th><th>SUBNET MASK</th><th>SECURITY CONTROL</th></tr></thead>
+        <tbody>
+          <tr><td class="topo-hl">PC1</td><td>NIC</td><td class="topo-ip">192.168.1.10</td><td>255.255.255.0</td><td>--</td></tr>
+          <tr><td class="topo-hl">PC2</td><td>NIC</td><td class="topo-ip">192.168.1.20</td><td>255.255.255.0</td><td>--</td></tr>
+          <tr><td class="topo-hl">R1</td><td>Fa0/0</td><td class="topo-ip">192.168.1.1</td><td>255.255.255.0</td><td class="topo-sec">ACL INBOUND</td></tr>
+          <tr><td class="topo-hl">SW1</td><td>VLAN 1</td><td class="topo-ip">192.168.1.2</td><td>255.255.255.0</td><td>--</td></tr>
+          <tr><td class="topo-hl">SW1</td><td>Fa0/1</td><td>--</td><td>--</td><td class="topo-sec">PORT SECURITY</td></tr>
+          <tr><td class="topo-hl">SW1</td><td>Fa0/2</td><td>--</td><td>--</td><td class="topo-sec">PORT SECURITY</td></tr>
+          <tr><td class="topo-hl">SW1</td><td>Fa0/3 - Fa0/24, G0/2</td><td>--</td><td>--</td><td class="topo-sec">SHUTDOWN</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sh">cat methodology.txt</div>
+    <div class="steps-list" id="steps-list"></div>
+  </div>
+
+  <div class="section">
+    <div class="sh">cat results.txt</div>
+    <div class="results-list" id="results-list"></div>
+  </div>
+
+  <!--
+  ==============================================================
+  SCREENSHOTS SECTION
+  ==============================================================
+
+  FOLDER STRUCTURE:
+    endpoint-security-hardening/
+    |-- index.html
+    |-- README.md
+    |-- topology.pkt
+    +-- images/
+        |-- topology.png
+        |-- acl-standard.png
+        |-- acl-extended.png
+        |-- port-security.png
+        |-- unused-ports.png
+        +-- verification.png
+
+  RECOMMENDED SCREENSHOTS:
+  - Full topology in Packet Tracer
+  - show access-lists output on R1
+  - show port-security output on SW1
+  - show interfaces status showing disabled ports
+  - Ping test results showing permitted and blocked traffic
+
+  WHEN READY:
+  1. Delete the placeholder div below
+  2. Remove the comment markers around the screenshots block
+  3. Update src filenames to match your actual files
+  ==============================================================
+  -->
+
+  <div class="section">
+    <div class="sh">ls ./evidence/</div>
+
+    <div class="screenshots">
+
+      <div class="screenshot-item">
+        <img src="topology.png">
+      </div>
+
+      <div class="screenshot-item">
+        <img src="R1-config.png">
+      </div>
+
+      <div class="screenshot-item">
+        <img src="SW1-config.png">
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="section">
+    <div class="sh">cat lessons_learned.txt</div>
+    <div class="lessons-list" id="lessons-list"></div>
+  </div>
+
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+var tc = { networking:'g', cybersecurity:'c', 'ethical-hacking':'a', automation:'g' };
+var sl = { soon:'COMING SOON', wip:'IN PROGRESS', live:'LIVE' };
+var ri = { success:'v', warning:'!', fix:'+', fail:'x' };
+
+if(PROJECT.portfolioLink) document.getElementById('nav-back').href = PROJECT.portfolioLink;
+document.getElementById('nav-id').textContent = 'ENDPOINT SECURITY HARDENING LAB';
+
+var gh  = PROJECT.githubLink    ? '<a href="' + PROJECT.githubLink + '" target="_blank" class="btn btn-p">View on GitHub</a>' : '';
+var pfl = PROJECT.portfolioLink ? '<a href="' + PROJECT.portfolioLink + '" class="btn btn-s">Back to Portfolio</a>' : '';
+document.getElementById('proj-header').innerHTML =
+  '<div class="proj-meta">' +
+    '<span class="meta-cat ' + PROJECT.category + '">' + PROJECT.category.toUpperCase().replace('-',' ') + '</span>' +
+    '<span class="meta-status ' + PROJECT.status + '">' + (sl[PROJECT.status] || PROJECT.status.toUpperCase()) + '</span>' +
+    '<span class="meta-source">CISCO ENDPOINT SECURITY · JUNIOR CYBERSECURITY ANALYST PATH</span>' +
+    '<span class="meta-date">' + PROJECT.date + ' by ' + PROJECT.author + '</span>' +
+  '</div>' +
+  '<h1 class="proj-title">' + PROJECT.title + '</h1>' +
+  '<p class="proj-overview">' + PROJECT.overview + '</p>' +
+  ((gh || pfl) ? '<div class="proj-actions">' + gh + pfl + '</div>' : '');
+
+var ol = document.getElementById('obj-list');
+PROJECT.objectives.forEach(function(o, i) {
+  ol.innerHTML += '<div class="obj-item"><span class="obj-num">' + String(i+1).padStart(2,'0') + '.</span><span>' + o + '</span></div>';
+});
+
+var tb = document.getElementById('tools-body');
+PROJECT.tools.forEach(function(t) {
+  tb.innerHTML += '<tr><td class="tool-name">' + t.name + '</td><td>' + t.purpose + '</td></tr>';
+});
+
+var tagClass = tc[PROJECT.category] || 'g';
+var tw = document.getElementById('tags-wrap');
+PROJECT.skills.forEach(function(s) {
+  tw.innerHTML += '<span class="tag ' + tagClass + '">' + s + '</span>';
+});
+
+var stl = document.getElementById('steps-list');
+PROJECT.steps.forEach(function(s, i) {
+  var cb = s.code ? '<pre class="step-code">' + s.code + '</pre>' : '';
+  stl.innerHTML +=
+    '<div class="step">' +
+      '<div class="step-header">' +
+        '<span class="step-n">STEP ' + String(i+1).padStart(2,'0') + '</span>' +
+        '<span class="step-title">' + s.title + '</span>' +
+      '</div>' +
+      '<div class="step-body"><div class="step-desc">' + s.desc + '</div>' + cb + '</div>' +
+    '</div>';
+});
+
+var rl = document.getElementById('results-list');
+PROJECT.results.forEach(function(r) {
+  rl.innerHTML += '<div class="result ' + r.type + '"><span class="ri">' + (ri[r.type] || '.') + '</span><span>' + r.text + '</span></div>';
+});
+
+var ll = document.getElementById('lessons-list');
+PROJECT.lessons.forEach(function(l, i) {
+  ll.innerHTML +=
+    '<div class="lesson">' +
+      '<div class="lesson-n">LESSON ' + String(i+1).padStart(2,'0') + '</div>' +
+      '<div class="lesson-title">' + l.title + '</div>' +
+      '<div class="lesson-text">' + l.text + '</div>' +
+    '</div>';
+});
+
+var lnk = PROJECT.authorLinkedIn
+  ? '<a href="' + PROJECT.authorLinkedIn + '" style="color:var(--green-d);text-decoration:none">' + PROJECT.author + '</a>'
+  : PROJECT.author;
+document.getElementById('footer').innerHTML =
+  '<p>' + lnk + ' &nbsp;.&nbsp; CYBERSECURITY PROJECT &nbsp;.&nbsp; CISCO ENDPOINT SECURITY &nbsp;.&nbsp; <span style="color:var(--green)">LIVE</span></p>';
+</script>
+</body>
+</html>
